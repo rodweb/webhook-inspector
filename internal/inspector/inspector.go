@@ -3,6 +3,7 @@ package inspector
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/rodweb/webhook-inspector/internal/config"
 	"github.com/rodweb/webhook-inspector/internal/request"
@@ -30,8 +31,7 @@ func Start(ctx context.Context, errChan chan<- error, reqChan <-chan request.Req
 
 	go func() {
 		log.Println("Inspector listening at http://localhost:8080")
-		err := server.ListenAndServe()
-		if err != nil {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errChan <- err
 		}
 	}()

@@ -2,6 +2,7 @@ package ngrok
 
 import (
 	"context"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/rodweb/webhook-inspector/internal/config"
 	"github.com/rodweb/webhook-inspector/internal/request"
@@ -9,6 +10,7 @@ import (
 	ngrokConfig "golang.ngrok.com/ngrok/config"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"time"
 )
@@ -41,8 +43,7 @@ func Start(ctx context.Context, errChan chan<- error, reqChan chan<- request.Req
 
 	go func() {
 		log.Printf("Tunnel listening at %s\n", tunnel.URL())
-		err := http.Serve(tunnel, NewHandler(reqChan))
-		if err != nil {
+		if err := http.Serve(tunnel, NewHandler(reqChan)); err != nil && errors.Is(err, net.ErrClosed) {
 			errChan <- err
 		}
 	}()
