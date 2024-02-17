@@ -48,7 +48,7 @@ func Start(ctx context.Context, errChan chan<- error, reqChan <-chan request.Req
 	}()
 
 	shutdownFunc := func() {
-		_ = server.Close()
+		_ = server.Shutdown(ctx)
 	}
 
 	return shutdownFunc
