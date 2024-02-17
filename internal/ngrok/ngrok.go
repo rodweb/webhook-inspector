@@ -20,7 +20,7 @@ type Options struct {
 	Domain    string
 }
 
-func Start(ctx context.Context, errChan chan<- error, reqChan chan<- request.Request, opts Options) func() {
+func Start(ctx context.Context, errChan chan<- error, reqChan chan<- request.Request, opts Options) func(context.Context) {
 	var endpointOptions ngrokConfig.HTTPEndpointOption
 	if opts.Domain != "" {
 		endpointOptions = ngrokConfig.WithDomain(opts.Domain)
@@ -48,8 +48,8 @@ func Start(ctx context.Context, errChan chan<- error, reqChan chan<- request.Req
 		}
 	}()
 
-	shutdownFunc := func() {
-		_ = tunnel.Close()
+	shutdownFunc := func(ctx context.Context) {
+		_ = tunnel.CloseWithContext(ctx)
 	}
 
 	return shutdownFunc

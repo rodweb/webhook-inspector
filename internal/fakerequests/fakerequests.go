@@ -1,6 +1,7 @@
 package fakerequests
 
 import (
+	"context"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/rodweb/webhook-inspector/internal/request"
@@ -11,12 +12,10 @@ var fakeMethods = []string{"GET", "POST", "PUT", "DELETE"}
 var fakeEndpoints = []string{"/users", "/products", "/orders", "/payments"}
 var fakeNames = []string{"John Doe", "Jane Doe", "John Smith", "Jane Smith"}
 
-func Start(reqChan chan<- request.Request) {
+func Start(ctx context.Context, reqChan chan<- request.Request) {
 	go func() {
 		// every 5 seconds
 		for {
-			time.Sleep(5 * time.Second)
-
 			// id is a random string
 			id := uuid.New()
 
@@ -37,7 +36,14 @@ func Start(reqChan chan<- request.Request) {
 				Timestamp: time.Now().UnixMilli(),
 			}
 
-			reqChan <- req
+			select {
+			case reqChan <- req:
+				continue
+			case <-ctx.Done():
+				return
+			default:
+				return
+			}
 		}
 	}()
 }

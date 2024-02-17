@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 const (
@@ -38,9 +39,11 @@ func main() {
 	}
 }
 
+type ShutdownFunc func(ctx context.Context)
+
 func run(ctx context.Context, config config.Config) error {
 	ctx, cancel := context.WithCancel(ctx)
-	shutdownFns := make([]func(), 0)
+	shutdownFns := make([]ShutdownFunc, 0)
 
 	errChan := make(chan error, 1)
 	reqChan := make(chan request.Request)
@@ -49,30 +52,35 @@ func run(ctx context.Context, config config.Config) error {
 
 	shutdownFns = append(shutdownFns, ngrok.Start(ctx, errChan, reqChan, ngrok.OptionsFromConfig(config)))
 	shutdownFns = append(shutdownFns, inspector.Start(ctx, errChan, reqChan, inspector.OptionsFromConfig(config)))
-	fakerequests.Start(reqChan)
+	fakerequests.Start(ctx, reqChan)
+
+	var err error
+	select {
+	case e := <-errChan:
+		log.Printf("Received error, shutting down: %s\n", err)
+		err = e
+	case sgn := <-sigChan:
+		log.Printf("Received signal, shutting down: %s\n", sgn)
+	}
+
+	cancel()
+	close(reqChan)
 
 	var wg sync.WaitGroup
 	wg.Add(len(shutdownFns))
 
-	select {
-	case err := <-errChan:
-		log.Printf("Received error, shutting down: %s\n", err)
-		close(reqChan)
-		cancel()
-		return err
-	case sgn := <-sigChan:
-		log.Printf("Received signal, shutting down: %s\n", sgn)
-		close(reqChan)
-		cancel()
-		for _, fn := range shutdownFns {
-			go func(shutdown func()) {
-				defer wg.Done()
-				shutdown()
-			}(fn)
-		}
-		wg.Wait()
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	for _, fn := range shutdownFns {
+		go func(shutdown ShutdownFunc) {
+			defer wg.Done()
+			shutdown(ctxTimeout)
+		}(fn)
 	}
+	wg.Wait()
 
 	log.Println("Gracefully shutdown done")
-	return nil
+	time.Sleep(1 * time.Nanosecond)
+	return err
 }

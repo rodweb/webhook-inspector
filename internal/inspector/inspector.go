@@ -23,7 +23,7 @@ type Options struct {
 	Port string
 }
 
-func Start(ctx context.Context, errChan chan<- error, reqChan <-chan request.Request, opts Options) func() {
+func Start(ctx context.Context, errChan chan<- error, reqChan <-chan request.Request, opts Options) func(context.Context) {
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", opts.Port),
 		Handler: routes(),
@@ -47,7 +47,7 @@ func Start(ctx context.Context, errChan chan<- error, reqChan <-chan request.Req
 		}
 	}()
 
-	shutdownFunc := func() {
+	shutdownFunc := func(ctx context.Context) {
 		_ = server.Shutdown(ctx)
 	}
 
