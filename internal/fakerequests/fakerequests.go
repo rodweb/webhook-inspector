@@ -38,10 +38,9 @@ func Start(ctx context.Context, reqChan chan<- request.Request) {
 
 			select {
 			case reqChan <- req:
+				time.Sleep(5 * time.Second)
 				continue
 			case <-ctx.Done():
-				return
-			default:
 				return
 			}
 		}

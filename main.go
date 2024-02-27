@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"github.com/joho/godotenv"
 	"github.com/rodweb/webhook-inspector/internal/config"
 	"github.com/rodweb/webhook-inspector/internal/fakerequests"
@@ -28,10 +29,16 @@ func main() {
 		log.Fatalf("Failed to load .env file: %s\n", err)
 	}
 
+	var enableFakeRequests bool
+	flag.BoolVar(&enableFakeRequests, "fake", false, "Generate test requests")
+	flag.Parse()
+
 	cfg := config.Config{
 		Token:  os.Getenv(EnvironmentVariableNgrokAuthToken),
 		Domain: os.Getenv(EnvironmentVariableNgrokDomain),
 		Port:   os.Getenv(EnvironmentVariableInspectorPort),
+
+		EnableFakeRequests: enableFakeRequests,
 	}
 
 	if err := run(context.Background(), cfg); err != nil {
@@ -52,7 +59,9 @@ func run(ctx context.Context, config config.Config) error {
 
 	shutdownFns = append(shutdownFns, ngrok.Start(ctx, errChan, reqChan, ngrok.OptionsFromConfig(config)))
 	shutdownFns = append(shutdownFns, inspector.Start(ctx, errChan, reqChan, inspector.OptionsFromConfig(config)))
-	fakerequests.Start(ctx, reqChan)
+	if config.EnableFakeRequests {
+		fakerequests.Start(ctx, reqChan)
+	}
 
 	var err error
 	select {
