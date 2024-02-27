@@ -2,6 +2,7 @@ class State {
     constructor() {
         this.eventSource = new EventSource('/sse');
         this.requests = {};
+        this.notify = false;
     }
 
     addRequest(req) {
@@ -22,7 +23,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     setInterval(updateConnectionStatus, 1000)
     setInterval(updateRelativeTime, 5000)
+    setTimeout(askNotificationPermission, 1000)
 })
+
+function askNotificationPermission() {
+    if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                console.log('Notification permission granted')
+                state.enableNotifications()
+            } else {
+                console.log('Notification permission denied:', permission)
+            }
+        })
+    }
+}
 
 function updateRelativeTime() {
     for (const req of Object.values(state.requests)) {
@@ -73,10 +88,24 @@ function addRequest(req) {
     time.innerHTML = relativeTime(req.timestamp)
 
     request.appendChild(time);
-    list.appendChild(request);
+
+    const first = list.firstChild;
+    if (first) {
+        list.insertBefore(request, first);
+    } else {
+        list.appendChild(request);
+    }
 
     state.addRequest(req)
     updateRequestCount();
+
+    if (Notification.permission === 'granted') {
+        sendNotification(req.method + ' ' + req.endpoint)
+    }
+}
+
+function sendNotification(body) {
+    new Notification("Webhook Inspector", { body })
 }
 
 function updateConnectionStatus() {
@@ -138,7 +167,16 @@ function updateBody(content) {
 
 function showRequest(req) {
     updateHeaders(req.headers)
-    updateBody(req.body)
+    updateBody(indentJSON(req.body))
+}
+
+function indentJSON(content) {
+    try {
+        const obj = JSON.parse(content);
+        return JSON.stringify(obj, null, 2);
+    } catch (e) {
+        return content;
+    }
 }
 
 function clearRequests() {
