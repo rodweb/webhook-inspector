@@ -30,7 +30,7 @@ func Start(ctx context.Context, errChan chan<- error, reqChan <-chan request.Req
 	}
 
 	go func() {
-		log.Println("Inspector listening at http://localhost:8080")
+		log.Printf("Inspector listening at http://localhost:%s\n", opts.Port)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errChan <- err
 		}
